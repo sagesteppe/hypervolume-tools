@@ -154,8 +154,15 @@ test_that("inclusion test fast path agrees with a ball query", {
 
 test_that("inclusion test accurate path returns logicals", {
   hv <- prob_fixture(n = 400L)
-  pts <- rbind(c(0.5, 0.5), c(20, 20))
-  colnames(pts) <- c("X1", "X2")
+
+  # Same hazard as the fast path: the accurate path forwards to
+  # hypervolume_estimate_probability with set.edges.zero = TRUE, and the
+  # characteristic distance is only 400^(-1/2) = 0.05. An arbitrary interior
+  # coordinate has a ~4% chance of having no neighbour that close, which would
+  # hard-zero the estimate. Query a point the cloud actually contains.
+  inside <- hv@RandomPoints[1L, , drop = FALSE]
+  far <- matrix(c(20, 20), nrow = 1, dimnames = list(NULL, c("X1", "X2")))
+  pts <- rbind(inside, far)
 
   res <- quietly(hypervolume_inclusion_test(
     hv, pts, fast.or.accurate = "accurate",

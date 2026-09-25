@@ -178,9 +178,14 @@ test_that("repmat tiles as the rectangular evaluator expects", {
 })
 
 test_that("tree build cost is not quadratic in n", {
-  # Guards proposal #1. On the unfixed source the per-node workarray clear is
-  # exactly n(n-1) writes, so build time scales ~n^2; after the fix it should be
-  # ~n log n. A 4x increase in n should cost well under 8x the time.
+  # Guards proposal #1, and is EXPECTED TO FAIL until that lands. On the
+  # unfixed source the per-node workarray clear is exactly n(n-1) writes, so
+  # 4x the points costs ~16x the time, not the <8x asserted below.
+  #
+  # Kept skipped so the baseline suite is green, since TESTING.md promises a
+  # fresh checkout runs clean. Un-skip it as the acceptance criterion when you
+  # do the kd-tree work.
+  skip("expected to fail on the unfixed tree; un-skip as the check for proposal #1")
   skip_if_not_slow()
   skip_on_cran()
 

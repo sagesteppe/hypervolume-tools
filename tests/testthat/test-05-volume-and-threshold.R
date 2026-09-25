@@ -138,7 +138,20 @@ test_that("uniform.density controls whether values are flattened to 1", {
     hv, num.thresholds = 5, uniform.density = FALSE, plot = FALSE, verbose = FALSE
   ))
 
-  expect_true(all(flat$HypervolumesThresholded@HVList[[2]]@ValueAtRandomPoints == 1))
+  flat2 <- flat$HypervolumesThresholded@HVList[[2]]
+  expect_true(all(flat2@ValueAtRandomPoints == 1))
+
+  # PINS A KNOWN DEFECT. hypervolume_threshold.R does
+  #     hv_new@ValueAtRandomPoints <- rep(1, length(hv_new@ValueAtRandomPoints))
+  # but at that line hv_new is still a copy of hv with only @RandomPoints
+  # subset, so length() is the ORIGINAL n, not the retained count. Every
+  # uniform.density = TRUE result therefore carries more values than points.
+  #
+  # Asserting the buggy length rather than the correct one, so the suite stays
+  # green and proposal #3 cannot change it by accident. The correct assertion
+  # is nrow(flat2@RandomPoints); swap to that when the slot is fixed.
+  expect_length(flat2@ValueAtRandomPoints, nrow(hv@RandomPoints))
+  expect_gt(length(flat2@ValueAtRandomPoints), nrow(flat2@RandomPoints))
 
   t2 <- kept$Statistics$threshold[2]
   expect_equal(

@@ -22,7 +22,9 @@ suppressPackageStartupMessages({
 })
 
 args <- commandArgs(trailingOnly = TRUE)
-force <- "--force" %in% args
+# Not named `force`: helper-hv.R is sourced into this same environment and its
+# with_seed()/quietly() both call base::force().
+force_overwrite <- "--force" %in% args
 
 root <- normalizePath(".", mustWork = TRUE)
 helper_dir <- file.path(root, "tests", "testthat")
@@ -34,8 +36,10 @@ if (!dir.exists(helper_dir)) {
 }
 
 # testthat::test_path() only resolves inside a running test, so point it here.
+# No on.exit(): at top level under Rscript there is no return context to
+# attach to, so the handler would be silently discarded. Restored explicitly
+# at the end instead.
 old_wd <- setwd(helper_dir)
-on.exit(setwd(old_wd), add = TRUE)
 
 source("helper-hv.R", local = FALSE)
 source("helper-golden-scenarios.R", local = FALSE)
@@ -44,7 +48,7 @@ fixture_dir <- file.path(helper_dir, "fixtures")
 dir.create(fixture_dir, showWarnings = FALSE, recursive = TRUE)
 out_path <- file.path(fixture_dir, "golden-baseline.rds")
 
-if (file.exists(out_path) && !force) {
+if (file.exists(out_path) && !force_overwrite) {
   stop(
     "golden-baseline.rds already exists.\n",
     "Overwriting it re-baselines against whatever the package currently does, ",
@@ -54,11 +58,11 @@ if (file.exists(out_path) && !force) {
 }
 
 git_sha <- tryCatch(
-  system2("git", c("rev-parse", "--short", "HEAD"), stdout = TRUE, stderr = NULL),
+  system2("git", c("rev-parse", "--short", "HEAD"), stdout = TRUE, stderr = FALSE),
   error = function(e) NA_character_
 )
 git_branch <- tryCatch(
-  system2("git", c("rev-parse", "--abbrev-ref", "HEAD"), stdout = TRUE, stderr = NULL),
+  system2("git", c("rev-parse", "--abbrev-ref", "HEAD"), stdout = TRUE, stderr = FALSE),
   error = function(e) NA_character_
 )
 
@@ -103,3 +107,5 @@ message("  ", golden$meta$r_version)
 message("")
 message("Commit this file so the comparison survives across checkouts:")
 message("  git add -f tests/testthat/fixtures/golden-baseline.rds")
+
+setwd(old_wd)

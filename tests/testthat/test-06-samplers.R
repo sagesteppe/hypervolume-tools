@@ -191,9 +191,11 @@ test_that("sample_model_ellipsoid drops incomplete cases and names its columns",
 test_that("sample_model_rejection honours its range and acceptance threshold", {
   # The other sampler mentioned in proposal #7 (data.frame round trip in the
   # rescaling loop). Uses lm() purely because it comes with a predict method.
+  # X2 must not be collinear with X1, or lm() is rank-deficient and every
+  # predict() call warns.
   df <- data.frame(
     X1 = seq(0, 1, length.out = 40),
-    X2 = seq(0, 1, length.out = 40)
+    X2 = seq(0, 1, length.out = 40)^2
   )
   df$y <- df$X1
   model <- stats::lm(y ~ X1 + X2, data = df)

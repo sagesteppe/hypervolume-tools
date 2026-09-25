@@ -111,9 +111,19 @@ covr::report(covr::package_coverage(type = "tests"))
 
 ## Tests that pin behaviour rather than endorse it
 
-Three tests assert things that look like bugs. They are there so a performance
+Four tests assert things that look like bugs. They are there so a performance
 refactor cannot change them *by accident* — if any is fixed deliberately,
 update the test and say so in the commit.
+
+0. **`hypervolume_threshold(uniform.density = TRUE)` returns more values than
+   points** (`test-05`). The line is
+   `hv_new@ValueAtRandomPoints <- rep(1, length(hv_new@ValueAtRandomPoints))`,
+   but at that point `hv_new` is still a copy of `hv` with only `@RandomPoints`
+   subset, so `length()` is the *original* n. Every `uniform.density = TRUE`
+   result therefore violates the `length(@ValueAtRandomPoints) ==
+   nrow(@RandomPoints)` invariant. Found while reviewing the suite, not in the
+   original performance pass. Cheap to fix, unrelated to performance — worth
+   its own commit.
 
 1. **`calculate_density(weight = NULL)` returns `numeric(0)`**
    (`test-04`). The signature defaults `weight` to `NULL`, but the body does

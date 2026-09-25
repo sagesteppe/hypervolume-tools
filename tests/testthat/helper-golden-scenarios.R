@@ -116,8 +116,11 @@ golden_scenarios <- function() {
       )
       query <- rbind(c(0.25, 0.5), c(0.5, 0.5), c(0.75, 0.5))
       colnames(query) <- c("X1", "X2")
-      list(prob = as.numeric(quietly(hypervolume_estimate_probability(
-        hv, query, verbose = FALSE
+      # Seeded like the other scenarios: hypervolume_estimate_probability calls
+      # sample() internally, which would otherwise perturb the global stream and
+      # reorder the summation.
+      list(prob = as.numeric(with_seed(HV_SEED, quietly(
+        hypervolume_estimate_probability(hv, query, verbose = FALSE)
       ))))
     },
 
