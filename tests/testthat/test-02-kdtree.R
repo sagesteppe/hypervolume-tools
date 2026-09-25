@@ -178,29 +178,32 @@ test_that("repmat tiles as the rectangular evaluator expects", {
 })
 
 test_that("tree build cost is not quadratic in n", {
-  # Guards proposal #1, and is EXPECTED TO FAIL until that lands. On the
-  # unfixed source the per-node workarray clear is exactly n(n-1) writes, so
-  # 4x the points costs ~16x the time, not the <8x asserted below.
+  # Acceptance test for proposal #1 (KDTree.h workarray clear).
+  # 4x the points at O(n log n) costs ~5x the time; at O(n^2) it costs
+  # ~16x. Assert the ratio stays below 8, which fails on the unfixed
+  # source (~15x at these sizes) and passes with the fix (~5x).
   #
-  # Kept skipped so the baseline suite is green, since TESTING.md promises a
-  # fresh checkout runs clean. Un-skip it as the acceptance criterion when you
-  # do the kd-tree work.
-  skip("expected to fail on the unfixed tree; un-skip as the check for proposal #1")
+  # Uses microbenchmark rather than a single proc.time() reading so we
+  # can keep n small (fixed builds at n=5k are ~3ms -- individual reads
+  # are noisy at that scale, but the median of 15 microbenchmark
+  # iterations is stable to a few percent). Slow-gated because 20k-point
+  # builds unfixed are hundreds of ms even in the median.
   skip_if_not_slow()
   skip_on_cran()
+  skip_if_not_installed("microbenchmark")
 
-  time_build <- function(n) {
+  bench_build <- function(n) {
     d <- toy_data(n, 3L, seed = HV_SEED + n)
-    t0 <- proc.time()[["elapsed"]]
-    tree <- quietly(hypervolume:::kdtree_build(d, verbose = FALSE))
-    rm(tree); gc(verbose = FALSE)
-    proc.time()[["elapsed"]] - t0
+    mb <- microbenchmark::microbenchmark(
+      quietly(hypervolume:::kdtree_build(d, verbose = FALSE)),
+      times = 15L
+    )
+    median(mb$time) / 1e6  # ms
   }
 
-  small <- time_build(5000L)
-  large <- time_build(20000L)
+  small <- bench_build(5000L)
+  large <- bench_build(20000L)
 
-  skip_if(small < 0.05, "baseline build too fast to time reliably")
   expect_lt(large / small, 8)
 })
 

@@ -222,21 +222,12 @@ class KDTree {
                                 vector<int> Rarray;
                                 Larray.reserve( pidx.size()/2 + (pidx.size()%2==0 ? 0:1) );
                                 Rarray.reserve( pidx.size()/2 );
-                                
-                                // initialize the "partition" array
-                                // Setting parray to -1 indicates we are not using the point
-                                for (int i = 0; i < npoints; i++)
-                                  workarray[i] = -1;
-                                for (unsigned int i = 0; i < pidx.size(); i++)
-                                  workarray[ sortidx[dim][pidx[i]] ] = pidx[i];
-                                
-#ifdef DEBUG
-                                cout << "work array: ";
-                                for( unsigned int i=0; i< workarray.size(); i++ )
-                                  cout << workarray[ i ] << " ";
-                                cout << endl; 
-#endif 
-                                
+
+                                // Invariant: workarray is all -1 on entry. The heapsort branch
+                                // does not read workarray at all, so we skip the fill entirely
+                                // there. The scan branch below fills only the pidx.size()
+                                // positions it needs and restores them at the end, so the
+                                // invariant holds across sibling recursive calls.
                                 int pivot = -1; //index of the median element
                                 if((double)pidx.size()*log((double)pidx.size()) < npoints) {
                                   Larray.resize( pidx.size()/2 + (pidx.size()%2==0 ? 0:1), -1 );
@@ -247,6 +238,17 @@ class KDTree {
                                   pivot = pidx[(pidx.size()-1)/2];
                                 }
                                 else{
+                                  // Populate only the positions we will read.
+                                  for (unsigned int i = 0; i < pidx.size(); i++)
+                                    workarray[ sortidx[dim][pidx[i]] ] = pidx[i];
+
+#ifdef DEBUG
+                                  cout << "work array: ";
+                                  for( unsigned int i=0; i< workarray.size(); i++ )
+                                    cout << workarray[ i ] << " ";
+                                  cout << endl;
+#endif
+
                                   // The middle valid value of parray is the pivot,
                                   // the left go to a node on the left, the right
                                   // and the pivot go to a node on the right.
@@ -256,8 +258,8 @@ class KDTree {
                                     // Is the current point not in the current selection? skip
                                     if (workarray[i] == -1)
                                       continue;
-                                    
-                                    // len/2 is on the "right" of pivot. 
+
+                                    // len/2 is on the "right" of pivot.
                                     // Pivot is still put on the left side
                                     if (cnt == TH) {
                                       pivot = workarray[i];
@@ -266,12 +268,17 @@ class KDTree {
                                       Rarray.push_back( workarray[i] );
                                     else
                                       Larray.push_back( workarray[i] );
-                                    
+
                                     // Don't overwork, if we already read all the necessary just stop.
                                     cnt++;
                                     if(cnt>pidx.size())
                                       break;
                                   }
+
+                                  // Restore the -1 invariant on the positions we wrote,
+                                  // so the sibling recursive call sees a clean workarray.
+                                  for (unsigned int i = 0; i < pidx.size(); i++)
+                                    workarray[ sortidx[dim][pidx[i]] ] = -1;
                                 }
                                 
 #ifdef DEBUG

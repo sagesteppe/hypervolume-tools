@@ -12,8 +12,14 @@
 # Workflow:
 #   1. On the untouched baseline: `Rscript tools/bench.R` writes
 #      tools/bench-baseline.rds.
-#   2. After a perf commit: `R CMD INSTALL .` then
-#      `Rscript tools/bench.R --compare` shows a per-scenario ratio.
+#   2. After a perf commit: force a clean rebuild with
+#        rm -f src/*.o src/*.so && R CMD INSTALL .
+#      then `Rscript tools/bench.R --compare` shows a per-scenario ratio.
+#
+# The clean rebuild is not optional -- R's default Makefile does not track
+# header dependencies, so editing src/KDTree.h will not by itself trigger
+# a rebuild of the .cpp files that include it, and --compare would silently
+# read stale numbers.
 #
 # Uses microbenchmark rather than bench so no new package dependency is
 # added -- microbenchmark ships in most R installs and is already present
@@ -27,6 +33,15 @@ suppressPackageStartupMessages({
 args <- commandArgs(trailingOnly = TRUE)
 force_overwrite <- "--force" %in% args
 compare_mode    <- "--compare" %in% args
+
+# --report="label" appends a section to tools/bench-report.md and a set of
+# rows to tools/bench-report.csv, tagged with the label. Both artifacts are
+# gitignored -- they accumulate across proposals and get pasted into the PR
+# body at the end.
+report_label <- {
+  hit <- grepl("^--report=", args)
+  if (any(hit)) sub("^--report=", "", args[hit][1]) else NA_character_
+}
 
 # tiny helper so we don't need rlang
 `%||%` <- function(a, b) if (is.null(a)) b else a
@@ -45,12 +60,20 @@ set.seed(20260925L)
 
 scenarios <- list()
 
-# proposal #1: kd-tree build (n scaling)
-scenarios$kdtree_build_2k <- local({
-  d <- matrix(rnorm(2000L * 3L), ncol = 3L)
+# proposal #1: kd-tree build. Sizes chosen to span the actual range of
+# ecological field data hypervolume() sees in the wild -- roughly the
+# 5th percentile (n=500), median (~n=5000), and 99th percentile (n=10000)
+# of user datasets. Anything larger is algorithmically interesting but
+# doesn't reflect what published users actually run.
+scenarios$kdtree_build_500 <- local({
+  d <- matrix(rnorm(500L * 3L), ncol = 3L)
   function() invisible(hypervolume:::kdtree_build(d, verbose = FALSE))
 })
-scenarios$kdtree_build_10k <- local({
+scenarios$kdtree_build_5000 <- local({
+  d <- matrix(rnorm(5000L * 3L), ncol = 3L)
+  function() invisible(hypervolume:::kdtree_build(d, verbose = FALSE))
+})
+scenarios$kdtree_build_10000 <- local({
   d <- matrix(rnorm(10000L * 3L), ncol = 3L)
   function() invisible(hypervolume:::kdtree_build(d, verbose = FALSE))
 })
@@ -143,13 +166,14 @@ run_bench <- function() {
   for (nm in names(scenarios)) {
     message("  ", nm, "...", appendLF = FALSE)
     gc(verbose = FALSE, full = TRUE)
-    # 5 iterations is enough for scenarios that take >10ms; microbenchmark's
-    # setup overhead dominates for anything faster, but nothing here is that
-    # fast on the baseline.
-    mb <- microbenchmark(scenarios[[nm]](), times = 5L, unit = "ms")
+    # 20 iterations because the cheap scenarios (kdtree_build_500 at
+    # sub-millisecond, fastPdist2 at 700us) need enough samples for the
+    # median to be stable to a few percent. Cost is ~30s total on the
+    # baseline, dominated by the expensive scenarios.
+    mb <- microbenchmark(scenarios[[nm]](), times = 20L, unit = "ms")
     med_ms <- median(mb$time) / 1e6
     times_ms[[nm]] <- med_ms
-    message(sprintf(" %.1f ms (median of 5)", med_ms))
+    message(sprintf(" %.2f ms (median of 20)", med_ms))
   }
   times_ms
 }
@@ -198,6 +222,61 @@ if (compare_mode) {
   message("Current build:    ", git_branch, "@", git_sha)
   message("")
   print(tbl, row.names = FALSE, right = FALSE)
+
+  if (!is.na(report_label)) {
+    md_path  <- file.path(root, "tools", "bench-report.md")
+    csv_path <- file.path(root, "tools", "bench-report.csv")
+
+    md <- c(
+      sprintf("## %s", report_label),
+      "",
+      sprintf("Recorded %s. Current build: `%s@%s`. Baseline: `%s@%s`.",
+              format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z"),
+              git_branch, git_sha,
+              baseline$meta$git_branch, baseline$meta$git_sha),
+      "",
+      "| scenario | baseline | current | ratio | change |",
+      "|---|---|---|---|---|",
+      sprintf("| %s | %s | %s | %s | %s |",
+              tbl$scenario, tbl$baseline, tbl$current, tbl$ratio, tbl$change),
+      ""
+    )
+    if (!file.exists(md_path)) {
+      writeLines(c(
+        "# hypervolume perf report",
+        "",
+        sprintf("Deltas against the untouched 3.1.7 baseline at `%s@%s`, ",
+                baseline$meta$git_branch, baseline$meta$git_sha),
+        "recorded by `tools/bench.R --compare --report=\"label\"`.",
+        "Median of 20 microbenchmark runs.",
+        ""
+      ), md_path)
+    }
+    cat(md, sep = "\n", file = md_path, append = TRUE)
+    cat("\n", file = md_path, append = TRUE)
+
+    csv_new <- !file.exists(csv_path)
+    csv_rows <- data.frame(
+      label      = report_label,
+      timestamp  = format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z"),
+      git_sha    = git_sha,
+      scenario   = nms,
+      baseline_ms = base_v,
+      current_ms  = curr_v,
+      ratio      = ratio,
+      pct_change = pct,
+      stringsAsFactors = FALSE
+    )
+    utils::write.table(
+      csv_rows, csv_path,
+      sep = ",", row.names = FALSE, col.names = csv_new,
+      append = !csv_new, quote = TRUE
+    )
+    message("")
+    message("Appended report section '", report_label, "' to ", md_path)
+    message("Appended ", nrow(csv_rows), " rows to ", csv_path)
+  }
+
   invisible()
 } else {
   # --- record mode ---------------------------------------------------------
