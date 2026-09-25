@@ -8,3 +8,9 @@ inst/doc
 The_n‐dimensional_hypervolume.pdf
 New approaches for delineating n‐dimensional hypervolumes.pdf
 .DS_Store
+
+# Claude Code / agent-local artifacts -- keep local, do not commit
+.claude/
+.claude.local.md
+CLAUDE.md
+.mcp.json
