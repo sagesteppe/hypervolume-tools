@@ -34,6 +34,22 @@ skip_if_not_slow <- function() {
   invisible(TRUE)
 }
 
+# Gate for tests that exercise the OpenMP-parallelised query paths introduced
+# by proposal #6. Skipped when the package was not built with OpenMP, or when
+# the runtime helper for changing thread count is not present (both of those
+# ship together with proposal #6). Same env-var idiom as the slow gate: set
+#   Sys.setenv(HYPERVOLUME_TEST_OMP = "true")
+# in the CI job that builds with SHLIB_OPENMP_CXXFLAGS.
+skip_if_not_omp <- function() {
+  if (!identical(tolower(Sys.getenv("HYPERVOLUME_TEST_OMP", "false")), "true")) {
+    skip("OpenMP test; set HYPERVOLUME_TEST_OMP=true after proposal #6 lands")
+  }
+  if (!exists("omp_set_threads", envir = asNamespace("hypervolume"), inherits = FALSE)) {
+    skip("hypervolume:::omp_set_threads() not exported; add it with proposal #6")
+  }
+  invisible(TRUE)
+}
+
 # Quieten the cat()/message() chatter that most of these functions emit.
 # Deliberately does NOT suppress warnings: several tests assert on them, and
 # swallowing them here would make those assertions silently unreachable.

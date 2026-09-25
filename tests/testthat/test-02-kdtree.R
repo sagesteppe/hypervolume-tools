@@ -203,3 +203,42 @@ test_that("tree build cost is not quadratic in n", {
   skip_if(small < 0.05, "baseline build too fast to time reliably")
   expect_lt(large / small, 8)
 })
+
+test_that("ball-query results are independent of OpenMP thread count", {
+  # Acceptance test for proposal #6 (OpenMP over kdtree_ball_query_multiple
+  # and friends). Skipped until proposal #6 lands and the build sets
+  # SHLIB_OPENMP_CXXFLAGS -- see skip_if_not_omp() in helper-hv.R.
+  #
+  # What this guards: proposal #6's #pragma omp parallel for over query points
+  # must write into a pre-sized result vector, not push_back into an
+  # unreserved one. A race in the count/id append path would show up here as
+  # counts drifting between thread configurations or ids landing in the wrong
+  # query-point slot. Sizes are chosen large enough that a 4-thread run
+  # actually splits work (n=4000 data, 200 queries).
+  skip_if_not_omp()
+  skip_on_cran()
+
+  data  <- toy_data(4000L, 4L, seed = HV_SEED)
+  query <- toy_data(200L, 4L, seed = HV_SEED + 11L)
+
+  run_at_threads <- function(nt) {
+    hypervolume:::omp_set_threads(nt)
+    on.exit(hypervolume:::omp_set_threads(1L), add = TRUE)
+    list(
+      counts_075 = as.numeric(quietly(
+        hypervolume:::evalfspherical(data, 0.75, query, verbose = FALSE)
+      )),
+      counts_150 = as.numeric(quietly(
+        hypervolume:::evalfspherical(data, 1.50, query, verbose = FALSE)
+      ))
+    )
+  }
+
+  serial   <- run_at_threads(1L)
+  parallel <- run_at_threads(4L)
+
+  # Exact equality: counts are integer-valued and the algorithm is
+  # deterministic per query point regardless of thread count.
+  expect_identical(parallel$counts_075, serial$counts_075)
+  expect_identical(parallel$counts_150, serial$counts_150)
+})

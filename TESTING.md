@@ -40,16 +40,19 @@ testthat::test_local()
 Rscript -e 'devtools::test()'
 ```
 
-A handful of tests are gated behind an environment variable because they take
-more than a second or two:
+A handful of tests are gated behind environment variables so a fresh checkout
+runs green:
 
 ```r
-Sys.setenv(HYPERVOLUME_TEST_SLOW = "true")
+Sys.setenv(HYPERVOLUME_TEST_SLOW = "true")   # slow (>1s) tests
+Sys.setenv(HYPERVOLUME_TEST_OMP  = "true")   # OpenMP determinism check
 testthat::test_local()
 ```
 
-Those are the kd-tree build-scaling guard and the "recognisable 2D Gaussian"
-sanity check.
+`HYPERVOLUME_TEST_SLOW` covers the kd-tree build-scaling guard and the
+"recognisable 2D Gaussian" sanity check. `HYPERVOLUME_TEST_OMP` covers the
+thread-count determinism test in `test-02` — see the acceptance-criteria
+checklist below.
 
 ## The golden baseline
 
@@ -141,6 +144,21 @@ update the test and say so in the commit.
    (`test-01`). The `|a|² + |b|² − 2a·b` expansion can go slightly negative and
    `sqrt` of that is `NaN`; `hypervolume_distance(type = "minimum")` hides it
    with `na.rm = TRUE`.
+
+## Acceptance-criteria checklist for the perf proposals
+
+Three tests are wired up but currently skipped. They are the pass/fail gates
+for the proposals they name — un-skipping them (and passing) is part of the
+commit that lands the proposal, not a follow-up.
+
+| Test | Location | Un-skip in the commit that lands |
+|---|---|---|
+| `fastPdist2 returns real distances for near-coincident points` | `test-01-fastpdist2.R` | proposal #9 (fastPdist2 clamp) |
+| `tree build cost is not quadratic in n` | `test-02-kdtree.R` | proposal #1 (KDTree workarray) |
+| `ball-query results are independent of OpenMP thread count` | `test-02-kdtree.R` | proposal #6 (OpenMP over ball queries) — also add `hypervolume:::omp_set_threads()` and wire `HYPERVOLUME_TEST_OMP=true` into CI |
+
+If a proposal lands without flipping its skip, the regression net for that
+proposal isn't active — the CI would stay green whether or not the fix worked.
 
 ## Notes for whoever lands the optimisations
 
