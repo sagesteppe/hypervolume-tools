@@ -155,12 +155,17 @@ test_that("inclusion test fast path agrees with a ball query", {
 test_that("inclusion test accurate path returns logicals", {
   hv <- prob_fixture(n = 400L)
 
-  # Same hazard as the fast path: the accurate path forwards to
-  # hypervolume_estimate_probability with set.edges.zero = TRUE, and the
-  # characteristic distance is only 400^(-1/2) = 0.05. An arbitrary interior
-  # coordinate has a ~4% chance of having no neighbour that close, which would
-  # hard-zero the estimate. Query a point the cloud actually contains.
-  inside <- hv@RandomPoints[1L, , drop = FALSE]
+  # Two hazards on the accurate path (which forwards to
+  # hypervolume_estimate_probability with set.edges.zero = TRUE):
+  # 1. Characteristic distance is only 400^(-1/2) = 0.05, so an arbitrary
+  #    interior point has a ~4% chance of having no neighbour that close,
+  #    which would hard-zero the estimate. Query a point the cloud contains.
+  # 2. Querying an exact fixture point makes one pdist distance zero;
+  #    weight = distance^(-1) is then Inf and sum(prob*Inf)/sum(Inf) is NaN
+  #    -- see the "known-defects" section of TESTING.md. Offset by an
+  #    epsilon large enough to survive pdist's ~1e-6 catastrophic
+  #    cancellation floor but well below cutoff_dist (=0.05 here).
+  inside <- hv@RandomPoints[1L, , drop = FALSE] + 1e-4
   far <- matrix(c(20, 20), nrow = 1, dimnames = list(NULL, c("X1", "X2")))
   pts <- rbind(inside, far)
 

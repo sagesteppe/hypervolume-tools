@@ -138,9 +138,15 @@ test_that("an empty hypervolume short-circuits to the documented result", {
   )
   empty@ValueAtRandomPoints <- numeric(0)
 
-  res <- expect_warning(
+  # testthat's expect_warning(expr, regexp) returns the caught warning
+  # condition when regexp is supplied, not the expression value -- so we
+  # can't reuse the result. Capture the value separately.
+  expect_warning(
     quietly(hypervolume_set(empty, hv1, check.memory = FALSE, verbose = FALSE)),
     "no random points"
+  )
+  res <- suppressWarnings(
+    quietly(hypervolume_set(empty, hv1, check.memory = FALSE, verbose = FALSE))
   )
 
   expect_equal(res@HVList$Intersection@Volume, 0)

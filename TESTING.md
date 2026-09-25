@@ -145,6 +145,19 @@ update the test and say so in the commit.
    `sqrt` of that is `NaN`; `hypervolume_distance(type = "minimum")` hides it
    with `na.rm = TRUE`.
 
+4. **`hypervolume_estimate_probability` returns `NaN` when a query point
+   coincides exactly with an observation** (`test-09`). With the default
+   `weight.exponent = -1`, a distance of zero produces an `Inf` weight, and
+   `sum(prob * Inf) / sum(Inf)` collapses to `NaN` rather than the limit
+   (which would be `prob[coincident_idx]`). `hypervolume_inclusion_test`
+   forwards to this and propagates the `NaN`. Almost impossible to hit in
+   real use — query points are generally continuous, and coincidence with
+   a Monte-Carlo `RandomPoints` sample is measure-zero — so this is
+   deliberately left in place. The test dodges it by offsetting the query
+   by `1e-9`. Fix belongs in the same category as the `1/m` normalisation
+   in `PROPOSAL2_VERIFICATION.md` §1: correctness, not performance, own
+   commit.
+
 ## Acceptance-criteria checklist for the perf proposals
 
 Three tests are wired up but currently skipped. They are the pass/fail gates

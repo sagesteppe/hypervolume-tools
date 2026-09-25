@@ -189,5 +189,9 @@ test_that("calculate_density handles a single data point and a single test point
   )
 
   expect_length(out, 1L)
-  expect_equal(out, ref_density(s, means, bw, 1), tolerance = 1e-12)
+  # ignore_attr: R's 1-row-matrix column-subset (s[, 1] on a matrix whose
+  # only dimnames are column names) inherits the column name, and dnorm
+  # propagates it, so ref_density ends up with a stray "X1" name.
+  # calculate_density itself correctly returns a bare numeric.
+  expect_equal(out, ref_density(s, means, bw, 1), tolerance = 1e-12, ignore_attr = TRUE)
 })
