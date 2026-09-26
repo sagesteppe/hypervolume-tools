@@ -142,6 +142,35 @@ scenarios$fastPdist2_500x500 <- local({
   function() invisible(hypervolume:::fastPdist2(A, B))
 })
 
+# proposal #8: hypervolume_set on two 2D overlapping boxes at a realistic
+# niche-analysis scale (~5000 RandomPoints per hypervolume, ~0.5 Jaccard
+# overlap). The hot path here used to be unique.data.frame after
+# rbind()ing two 5000-row data.frames.
+scenarios$hypervolume_set_5000 <- local({
+  set.seed(20260925L)
+  make_box <- function(lo, hi, seed, name) {
+    set.seed(seed)
+    n <- 5000L
+    pts <- cbind(runif(n, lo[1], hi[1]), runif(n, lo[2], hi[2]))
+    colnames(pts) <- c("X1", "X2")
+    methods::new(
+      "Hypervolume",
+      Name = name, Method = "bench fixture",
+      Data = pts, Dimensionality = 2L,
+      Volume = prod(hi - lo), PointDensity = n / prod(hi - lo),
+      Parameters = list(),
+      RandomPoints = pts, ValueAtRandomPoints = rep(1, n)
+    )
+  }
+  hv1 <- make_box(c(0, 0), c(1, 1), seed = 1L, name = "A")
+  hv2 <- make_box(c(0.5, 0), c(1.5, 1), seed = 2L, name = "B")
+  function() {
+    invisible(suppressMessages(hypervolume_set(
+      hv1, hv2, check.memory = FALSE, verbose = FALSE
+    )))
+  }
+})
+
 # Flagship end-to-end: hypervolume_gaussian on a Quercus subset. Uses
 # only one species and a slice of samples.per.point so the baseline runs
 # in a few seconds -- the wall-clock here is what a downstream user
