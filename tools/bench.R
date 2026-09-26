@@ -1,29 +1,39 @@
 #!/usr/bin/env Rscript
 #
-# Benchmark harness for the performance work in hypervolume_speedup_notes.md.
-# Companion to tools/make_golden.R: goldens catch correctness drift, bench
-# catches (or confirms) the actual speedup.
+# Benchmark harness for the hypervolume perf work. Companion to
+# tools/make_golden.R: goldens catch correctness drift, bench catches
+# (or confirms) the actual speedup.
 #
 # Usage:
 #   Rscript tools/bench.R              # record baseline (refuses if exists)
 #   Rscript tools/bench.R --force      # overwrite baseline
 #   Rscript tools/bench.R --compare    # run against installed pkg, diff vs baseline
+#   Rscript tools/bench.R --compare --report="label"   # also append a
+#                                       # section to tools/bench-report.md
 #
-# Workflow:
-#   1. On the untouched baseline: `Rscript tools/bench.R` writes
-#      tools/bench-baseline.rds.
-#   2. After a perf commit: force a clean rebuild with
-#        rm -f src/*.o src/*.so && R CMD INSTALL .
-#      then `Rscript tools/bench.R --compare` shows a per-scenario ratio.
+# =============================================================================
+# READ THIS BEFORE ANY C++ CHANGE: force a clean rebuild.
+# =============================================================================
 #
-# The clean rebuild is not optional -- R's default Makefile does not track
-# header dependencies, so editing src/KDTree.h will not by itself trigger
-# a rebuild of the .cpp files that include it, and --compare would silently
-# read stale numbers.
+# R's default Makevars DOES NOT track header dependencies. Editing
+# src/KDTree.h or src/MyHeaps.h will not by itself trigger a rebuild of
+# the .cpp files that include them -- make compares source-file mtimes,
+# sees nothing changed, and re-uses the stale .o. R CMD INSTALL then
+# re-links the old object into a "new" shared library, and both tests
+# and bench numbers silently reflect the previous build.
+#
+# When editing anything under src/, always:
+#
+#     rm -f src/*.o src/*.so && R CMD INSTALL .
+#
+# before running the test suite or `tools/bench.R --compare`. Without
+# this, --compare will show phantom "no improvement" numbers. This cost
+# about an hour of debugging during the KDTree work.
+#
+# =============================================================================
 #
 # Uses microbenchmark rather than bench so no new package dependency is
-# added -- microbenchmark ships in most R installs and is already present
-# on this machine.
+# added -- microbenchmark ships in most R installs.
 
 suppressPackageStartupMessages({
   library(hypervolume)
