@@ -35,26 +35,20 @@ test_that("fastPdist2 is symmetric and zero on the diagonal for A vs A", {
 
   expect_equal(as.numeric(D), as.numeric(t(D)), tolerance = 1e-8)
   # The diagonal is the exact case where catastrophic cancellation bites:
-  # |a|^2 + |a|^2 - 2a.a can land either side of zero. So assert only that it
-  # is zero to within rounding, and tolerate the NaN the unclamped code can
-  # produce. Tightening this to expect_false(anyNA(.)) is part of proposal #9.
-  expect_true(all(is.na(diag(D)) | abs(diag(D)) < 1e-6))
+  # |a|^2 + |a|^2 - 2a.a can land either side of zero. Proposal #9's clamp
+  # guarantees the sqrt is real, so no NaN is tolerable.
+  expect_false(anyNA(diag(D)))
+  expect_true(all(abs(diag(D)) < 1e-6))
 })
 
 test_that("fastPdist2 returns real distances for near-coincident points", {
-  # PINS A KNOWN DEFECT (review note #9). Points separated by far less than
-  # sqrt(.Machine$double.eps) relative to their magnitude: at |a| ~ 1e6 the
-  # squared norms are ~3e12, where one ulp is ~1e-3, but the true squared
-  # distance is ~4e-18. So |a|^2 + |b|^2 - 2a.b is pure rounding noise of
-  # either sign, and sqrt() of the negative half is NaN.
-  #
-  # Skipped rather than inverted, because whether any given entry comes out
-  # negative depends on the BLAS and on FMA contraction -- asserting that NaN
-  # *does* occur would be just as platform-dependent as asserting it doesn't.
-  # Remove the skip once the clamp in proposal #9 lands; it should then pass
-  # everywhere.
-  skip("pins the pre-clamp fastPdist2 defect; un-skip when proposal #9 lands")
-
+  # Acceptance test for proposal #9 (clamp negative squared distances
+  # before sqrt). Points separated by far less than sqrt(.Machine$double.eps)
+  # relative to their magnitude: at |a| ~ 1e6 the squared norms are ~3e12,
+  # where one ulp is ~1e-3, but the true squared distance is ~4e-18. So
+  # |a|^2 + |b|^2 - 2a.b is pure rounding noise of either sign; without the
+  # clamp, sqrt() of the negative half returns NaN and hypervolume_distance
+  # (type = "minimum") silently hides it via na.rm = TRUE.
   base <- matrix(rep(1e6, 3), nrow = 1)
   A <- rbind(base, base + 1e-9, base - 1e-9)
   colnames(A) <- paste0("X", 1:3)
