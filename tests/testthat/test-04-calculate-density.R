@@ -14,7 +14,7 @@ test_that("calculate_density matches an independent mixture-of-Gaussians", {
   observed <- hypervolume:::calculate_density(
     s = s, means = means, kernel_sd = bw, weight = w, verbose = FALSE
   )
-  expected <- ref_density(s, means, bw, w, divide_by_n = TRUE)
+  expected <- ref_density(s, means, bw, w)
 
   expect_equal(observed, expected, tolerance = 1e-10)
 })
@@ -136,17 +136,13 @@ test_that("calculate_density with weight=NULL returns numeric(0)", {
   expect_length(out, 0L)
 })
 
-test_that("calculate_density integrates to 1/n, not 1", {
-  # DOCUMENTS THE NORMALISATION NOTED IN THE REVIEW. `weight` is normalised to
-  # sum to 1 by hypervolume_gaussian, and then the body divides by n_points a
-  # second time. So the returned "density" integrates to 1/n_points.
-  #
-  # This cancels downstream because hypervolume_threshold works in quantiles,
-  # but it means ValueAtRandomPoints is not a probability density in the units
-  # a reader would assume. Pinning it here so proposal #2 cannot change it by
-  # accident -- if it is fixed deliberately, update this test and check
-  # anything that compares ValueAtRandomPoints across hypervolumes with
-  # different n (hypervolume_estimate_probability, occupancy_bootstrap_gof).
+test_that("calculate_density integrates to 1 as a proper probability density", {
+  # After the 1/m normalisation fix: with weight summing to 1, the returned
+  # mixture density k(x) = sum_i w_i * dnorm(x; mean_i, sd) integrates to 1
+  # over R^d, matching Blonder 2014 Box 2's alpha = 1/(m * prod(h)).
+  # Previously the body divided by n_points a second time and this test
+  # pinned the buggy 1/n integral -- see PROPOSAL2_VERIFICATION.md sec 1
+  # and TESTING.md's known-defects list (removed with this commit).
   grid <- matrix(seq(-12, 12, by = 0.002), ncol = 1)
   colnames(grid) <- "X1"
 
@@ -160,7 +156,7 @@ test_that("calculate_density integrates to 1/n, not 1", {
     )
     integral <- sum(dens) * 0.002
 
-    expect_equal(integral, 1 / n, tolerance = 1e-4, info = paste("n =", n))
+    expect_equal(integral, 1, tolerance = 1e-4, info = paste("n =", n))
   }
 })
 

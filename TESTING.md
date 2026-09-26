@@ -114,9 +114,9 @@ covr::report(covr::package_coverage(type = "tests"))
 
 ## Tests that pin behaviour rather than endorse it
 
-Four tests assert things that look like bugs. They are there so a performance
-refactor cannot change them *by accident* — if any is fixed deliberately,
-update the test and say so in the commit.
+A few tests assert things that look like bugs. They are there so a
+performance refactor cannot change them *by accident* — if any is fixed
+deliberately, update the test and say so in the commit.
 
 0. **`hypervolume_threshold(uniform.density = TRUE)` returns more values than
    points** (`test-05`). The line is
@@ -134,18 +134,7 @@ update the test and say so in the commit.
    `hypervolume_gaussian` always fills `weight` first, so this never fires in
    practice.
 
-2. **`calculate_density` integrates to `1/n`, not `1`** (`test-04`).
-   `hypervolume_gaussian` normalises `weight` to sum to 1, and then the body
-   divides by `n_points` again. Harmless downstream because thresholding is
-   quantile-based, but it means `ValueAtRandomPoints` is not a density in the
-   units a reader would assume.
-
-3. **`fastPdist2` can return `NaN` for near-coincident points**
-   (`test-01`). The `|a|² + |b|² − 2a·b` expansion can go slightly negative and
-   `sqrt` of that is `NaN`; `hypervolume_distance(type = "minimum")` hides it
-   with `na.rm = TRUE`.
-
-4. **`hypervolume_estimate_probability` returns `NaN` when a query point
+2. **`hypervolume_estimate_probability` returns `NaN` when a query point
    coincides exactly with an observation** (`test-09`). With the default
    `weight.exponent = -1`, a distance of zero produces an `Inf` weight, and
    `sum(prob * Inf) / sum(Inf)` collapses to `NaN` rather than the limit
@@ -154,9 +143,24 @@ update the test and say so in the commit.
    real use — query points are generally continuous, and coincidence with
    a Monte-Carlo `RandomPoints` sample is measure-zero — so this is
    deliberately left in place. The test dodges it by offsetting the query
-   by `1e-9`. Fix belongs in the same category as the `1/m` normalisation
-   in `PROPOSAL2_VERIFICATION.md` §1: correctness, not performance, own
-   commit.
+   by `1e-4`.
+
+### Fixed and removed from this list
+
+- **`calculate_density` integrated to `1/n` instead of `1`.** The trailing
+  `density / n_points` was a double-normalisation (weight is already
+  sum-to-1 in the `hypervolume_gaussian` path). Fixed; `test-04` now
+  pins integral == 1 as a proper probability density. Volumes are
+  unaffected (thresholding is quantile-based). Downstream consumers of
+  `@ValueAtRandomPoints` in absolute units — chiefly
+  `hypervolume_estimate_probability` — now return values with proper
+  probability-density units instead of being off by 1/n. Golden fixture
+  re-baselined on the corrected values.
+
+- **`fastPdist2` returned `NaN` for near-coincident points.** The
+  `|a|² + |b|² − 2a·b` expansion can go slightly negative from
+  rounding. Fixed by clamping negatives to zero before `sqrt`; `test-01`
+  now asserts no `NaN` on the diagonal of `fastPdist2(A, A)`.
 
 ## Acceptance-criteria checklist for the perf proposals
 

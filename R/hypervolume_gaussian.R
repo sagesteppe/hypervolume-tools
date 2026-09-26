@@ -49,18 +49,25 @@ calculate_density <- function(s, means, kernel_sd, weight=NULL, chunksize=10, ve
     D2 <- fastPdist2(Z[start:end, , drop = FALSE], M)^2
     density[start:end] <- as.numeric(exp(-0.5 * D2) %*% weight)
   }
-  density <- density * norm_const
 
   if (verbose) {
     for (i in seq_len(num_chunks)) pb$tick()
   }
 
-  # Preserves the 1/n over-normalisation the tests pin (test-04:139): weight
-  # is already summed to 1 by hypervolume_gaussian, and this trailing division
-  # by n_points is the second normalisation. Harmless for volume because
-  # thresholding is quantile-based, but note that ValueAtRandomPoints is
-  # therefore not a density in probability units. Fix separately.
-  density / n_points
+  # weight is a mixture-weight vector (sum-to-1 in the hypervolume_gaussian
+  # path), so sum_i weight_i * k(x; mean_i, sd) is already the mixture
+  # density and integrates to 1. Blonder 2014 Box 2 fixes the normalising
+  # constant as alpha = 1 / (m * prod(h)); dmvnorm-style k already carries
+  # 1/prod(h), and weight already carries 1/m via the caller's normalisation
+  # -- so no further division is needed. The previous body had a trailing
+  # `/ n_points` which was a second 1/m, producing values 1/n times too
+  # small (see PROPOSAL2_VERIFICATION.md sec 1). Fixed here; downstream
+  # consumers reading @ValueAtRandomPoints in absolute terms
+  # (hypervolume_estimate_probability, ValueAtRandomPoints comparisons
+  # across hvs with different n) now see actual probability density values.
+  # Volume is unaffected because acceptance is deterministic (density > 0)
+  # and thresholding is quantile-based.
+  density * norm_const
 }
 
 

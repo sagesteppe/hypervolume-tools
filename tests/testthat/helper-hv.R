@@ -145,8 +145,12 @@ ref_box_counts <- function(data, points, bandwidth) {
 
 # Mixture-of-diagonal-Gaussians density, built from univariate dnorm only.
 # Deliberately does NOT use mvtnorm, so it is independent of the package's
-# dmvnorm call. `divide_by_n` mirrors the package's trailing `/ n_points`.
-ref_density <- function(s, means, kernel_sd, weight, divide_by_n = TRUE) {
+# dmvnorm call. Historically had a `divide_by_n` argument that mirrored
+# the package's trailing `/ n_points`; that trailing division was a
+# double-normalisation bug and has been removed from calculate_density.
+# The argument is retained (default FALSE) so any test that was pinning
+# the buggy behaviour can still opt in explicitly if needed.
+ref_density <- function(s, means, kernel_sd, weight, divide_by_n = FALSE) {
   s <- as.matrix(s); means <- as.matrix(means)
   d <- ncol(means)
   n <- nrow(means)
