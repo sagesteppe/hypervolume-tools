@@ -40,6 +40,26 @@ testthat::test_local()
 Rscript -e 'devtools::test()'
 ```
 
+### C++ changes: force a clean rebuild
+
+R's default `Makevars` **does not track `.h` dependencies**. Editing
+`src/KDTree.h` (or `MyHeaps.h`) will not by itself trigger a rebuild of
+the `.cpp` files that include it — `make` compares source-file mtimes,
+sees nothing changed, and re-uses the stale `.o`. `R CMD INSTALL .`
+will then happily re-link the old object into a "new" shared library
+and both tests and bench numbers will silently reflect the previous
+build.
+
+**When editing anything under `src/`, always:**
+
+```sh
+rm -f src/*.o src/*.so && R CMD INSTALL .
+```
+
+before running the test suite or `tools/bench.R --compare`. Without
+this, `--compare` will show phantom "no improvement" numbers. This
+cost about an hour of debugging during the KDTree work.
+
 A handful of tests are gated behind environment variables so a fresh checkout
 runs green:
 
