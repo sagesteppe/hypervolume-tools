@@ -1,0 +1,32 @@
+# One image per commit: the deps image plus hypervolume installed from that
+# commit's source. The build context is a `git archive` of the commit (see
+# docker/lineage.sh), so there are never stale src/*.o files from a previous
+# build -- the header-dependency problem described in README.md cannot occur.
+#
+#     docker run --rm -it hypervolume-tools:008415f R
+#
+# The commit's full source, tests included, is at /pkg.
+
+ARG BASE_IMAGE=hypervolume-tools:deps
+FROM ${BASE_IMAGE}
+
+# Install from only what R CMD INSTALL reads. A commit that touches only tests
+# or docs then hits the cached install layer and gets the byte-identical
+# shared library of its parent.
+COPY DESCRIPTION NAMESPACE /pkg/
+COPY R/ /pkg/R/
+COPY src/ /pkg/src/
+COPY man/ /pkg/man/
+COPY data/ /pkg/data/
+COPY demo/ /pkg/demo/
+RUN R CMD INSTALL --preclean --clean /pkg
+
+COPY . /pkg/
+
+# Declared after the install so a new commit id alone doesn't bust its cache.
+ARG COMMIT=unknown
+ARG SUBJECT=
+ENV HV_COMMIT=${COMMIT}
+LABEL org.opencontainers.image.revision=${COMMIT} \
+      org.opencontainers.image.title="hypervolume @ ${COMMIT}" \
+      org.opencontainers.image.description="${SUBJECT}"

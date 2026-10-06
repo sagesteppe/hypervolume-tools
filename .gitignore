@@ -19,3 +19,6 @@ CLAUDE.md
 # into PR bodies. Keep local so the on-disk file is always current-run.
 tools/bench-report.md
 tools/bench-report.csv
+
+# docker/lineage.sh output
+lineage-out/

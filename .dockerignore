@@ -1,0 +1,4 @@
+# Only the deps image is built with the repo root as context, and it needs
+# DESCRIPTION alone. Per-commit images use a `git archive` as context instead.
+*
+!DESCRIPTION

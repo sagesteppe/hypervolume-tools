@@ -1,0 +1,39 @@
+# Shared base for every commit image: R plus all package dependencies, and
+# nothing from the hypervolume source itself. Every commit in the lineage is
+# built FROM this one image, so R, BLAS/LAPACK, compilers and dependency
+# versions are identical across commits -- any difference in timings or
+# numbers comes from the commit, not the environment.
+#
+# Built by docker/lineage.sh; by hand:
+#
+#     docker build -f docker/Dockerfile.deps -t hypervolume-tools:deps .
+
+# Same R version the in-repo fixtures were recorded on (4.5.0). rocker/r-ver
+# pins CRAN to a dated Posit Package Manager snapshot for this R release, so
+# dependency versions are frozen too.
+FROM rocker/r-ver:4.5.0
+
+ENV OMP_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1
+
+# pak resolves the system libraries (GDAL/GEOS/PROJ for terra & co., GMP for
+# rcdd, ...) from the package metadata, so they don't have to be listed here.
+RUN Rscript -e 'install.packages("pak")'
+
+COPY DESCRIPTION /tmp/deps/DESCRIPTION
+RUN Rscript -e 'pak::local_install_deps("/tmp/deps", dependencies = c("Depends", "Imports", "LinkingTo"), upgrade = FALSE)' \
+ && Rscript -e 'pak::pkg_install(c("testthat", "microbenchmark"), upgrade = FALSE)' \
+ && Rscript -e 'pak::cache_clean()' \
+ && rm -rf /tmp/deps /tmp/Rtmp*
+
+# rocker/r-ver links R against OpenBLAS. Switch to reference BLAS/LAPACK:
+# it is what CRAN's macOS and Windows builds ship (and what the in-repo
+# fixtures were recorded with), so speed-ups measured here are the ones most
+# users will see -- OpenBLAS would flatter the rewrites that move work into
+# dgemm. To measure under OpenBLAS instead, drop this block.
+RUN multiarch=$(gcc -dumpmachine) \
+ && update-alternatives --set "libblas.so.3-${multiarch}" "/usr/lib/${multiarch}/blas/libblas.so.3" \
+ && update-alternatives --set "liblapack.so.3-${multiarch}" "/usr/lib/${multiarch}/lapack/liblapack.so.3"
+
+WORKDIR /pkg
+CMD ["R"]
