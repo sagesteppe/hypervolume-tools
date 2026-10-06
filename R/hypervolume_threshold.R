@@ -42,7 +42,7 @@ hypervolume_threshold <- function(hv, thresholds=NULL, num.thresholds=20, quanti
       # was evaluated when hv_new@ValueAtRandomPoints was still the parent's
       # values, so this vector has length n_total, not sum(keep). Pinned by
       # test-05's "uniform.density controls whether values are flattened" test
-      # (item 0 in TESTING.md's known-defects list). Fix separately.
+      # (item 0 in README.md, "Tests that pin existing behaviour"). Fix separately.
       hv_new@ValueAtRandomPoints <- rep(1, n_total)
     }
     else

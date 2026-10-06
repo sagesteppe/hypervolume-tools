@@ -9,7 +9,7 @@ calculate_density <- function(s, means, kernel_sd, weight=NULL, chunksize=10, ve
   # and NULL[i] is NULL, so the accumulator collapses to numeric(0) on the first
   # iteration. hypervolume_gaussian always fills weight; only test-04 relies on
   # this branch. Preserve rather than fix so a rewrite of the semantics is its
-  # own commit -- see TESTING.md's known-defects list.
+  # own commit -- see README.md, "Tests that pin existing behaviour".
   if (is.null(weight)) return(numeric(0))
 
   d <- ncol(means)
@@ -61,7 +61,7 @@ calculate_density <- function(s, means, kernel_sd, weight=NULL, chunksize=10, ve
   # 1/prod(h), and weight already carries 1/m via the caller's normalisation
   # -- so no further division is needed. The previous body had a trailing
   # `/ n_points` which was a second 1/m, producing values 1/n times too
-  # small (see PROPOSAL2_VERIFICATION.md sec 1). Fixed here; downstream
+  # small (see README.md, "Changes to results"). Fixed here; downstream
   # consumers reading @ValueAtRandomPoints in absolute terms
   # (hypervolume_estimate_probability, ValueAtRandomPoints comparisons
   # across hvs with different n) now see actual probability density values.

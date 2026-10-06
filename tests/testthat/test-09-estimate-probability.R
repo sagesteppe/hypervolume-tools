@@ -162,7 +162,7 @@ test_that("inclusion test accurate path returns logicals", {
   #    which would hard-zero the estimate. Query a point the cloud contains.
   # 2. Querying an exact fixture point makes one pdist distance zero;
   #    weight = distance^(-1) is then Inf and sum(prob*Inf)/sum(Inf) is NaN
-  #    -- see the "known-defects" section of TESTING.md. Offset by an
+  #    -- item 2 in README.md, "Tests that pin existing behaviour". Offset by an
   #    epsilon large enough to survive pdist's ~1e-6 catastrophic
   #    cancellation floor but well below cutoff_dist (=0.05 here).
   inside <- hv@RandomPoints[1L, , drop = FALSE] + 1e-4

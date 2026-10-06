@@ -2,8 +2,8 @@
 #
 # These compare today's numbers against a snapshot taken from the UNMODIFIED
 # package (the `main` branch). They are the safety net for the performance work:
-# every proposal in hypervolume_speedup_notes.md is meant to be a pure speedup,
-# so every number here should survive it.
+# every proposal listed in README.md is meant to be a pure speedup, so every
+# number here should survive it.
 #
 # The fixture is not committed by default -- generate it on your own machine,
 # on the baseline commit, with:

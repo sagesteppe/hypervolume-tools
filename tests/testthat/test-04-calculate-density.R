@@ -141,8 +141,7 @@ test_that("calculate_density integrates to 1 as a proper probability density", {
   # mixture density k(x) = sum_i w_i * dnorm(x; mean_i, sd) integrates to 1
   # over R^d, matching Blonder 2014 Box 2's alpha = 1/(m * prod(h)).
   # Previously the body divided by n_points a second time and this test
-  # pinned the buggy 1/n integral -- see PROPOSAL2_VERIFICATION.md sec 1
-  # and TESTING.md's known-defects list (removed with this commit).
+  # pinned the buggy 1/n integral -- see README.md, "Changes to results".
   grid <- matrix(seq(-12, 12, by = 0.002), ncol = 1)
   colnames(grid) <- "X1"
 
